@@ -107,6 +107,10 @@ class Mint extends Component {
             let mxcAmountPerUsdt = new BN(baseInfo[9], 10);
             //1U有多少REFI代币
             let tokenPerUsdt = new BN(baseInfo[10], 10);
+            //计算MXC价格，价格=1U/1U的币数量*币的精度
+            let mxcPrice = toWei('1', 18).mul(toWei('1', usdtDecimals)).div(mxcAmountPerUsdt);
+            //代币价格
+            let tokenPrice = toWei('1', tokenDecimals).mul(toWei('1', usdtDecimals), tokenDecimals).div(tokenPerUsdt);
 
             //获取其他信息
             let extInfoResult = await poolContract.methods.getExtInfo().call();
@@ -135,6 +139,8 @@ class Mint extends Component {
                 helpPayMxcRate: helpPayMxcRate,
                 rewardFee: rewardFee,
                 defaultInvitor: defaultInvitor,
+                mxcPrice: showFromWei(mxcPrice, usdtDecimals, 8),
+                tokenPrice: showFromWei(tokenPrice, usdtDecimals, 12),
             })
 
             let account = WalletState.wallet.account;
@@ -265,20 +271,51 @@ class Mint extends Component {
         let tokenAmounts = this.state.tokenAmounts;
         if (event.target.validity.valid) {
             amount = event.target.value;
-            let mxcAmount = this.state.mxcAmountPerUsdt.mul(new BN(amount, 10));
-            let refiAmount = this.state.tokenPerUsdt.mul(new BN(amount, 10));
-            tokenAmounts = [showFromWei(refiAmount, this.state.tokenDecimals, 6), showFromWei(mxcAmount, 18, 8)];
+            if (amount) {
+                let mxcAmount = this.state.mxcAmountPerUsdt.mul(new BN(amount, 10));
+                let refiAmount = this.state.tokenPerUsdt.mul(new BN(amount, 10));
+                tokenAmounts = [showFromWei(refiAmount, this.state.tokenDecimals, 6), showFromWei(mxcAmount, 18, 8)];
+            } else {
+                tokenAmounts = ['', ''];
+            }
         }
         this.setState({ amountIn: amount, tokenAmounts: tokenAmounts });
     }
 
+    //获取到新价格时更新数据
     onPriceChange() {
+        //自己参与数量变化
         let amount = this.state.amountIn;
         let tokenAmounts = this.state.tokenAmounts;
-        let mxcAmount = this.state.mxcAmountPerUsdt.mul(new BN(amount, 10));
-        let refiAmount = this.state.tokenPerUsdt.mul(new BN(amount, 10));
-        tokenAmounts = [showFromWei(refiAmount, this.state.tokenDecimals, 6), showFromWei(mxcAmount, 18, 8)];
+        if (amount) {
+            let mxcAmount = this.state.mxcAmountPerUsdt.mul(new BN(amount, 10));
+            let refiAmount = this.state.tokenPerUsdt.mul(new BN(amount, 10));
+            tokenAmounts = [showFromWei(refiAmount, this.state.tokenDecimals, 6), showFromWei(mxcAmount, 18, 8)];
+        } else {
+            tokenAmounts = ['', ''];
+        }
         this.setState({ amountIn: amount, tokenAmounts: tokenAmounts });
+
+        //帮参与数量变化
+        let helpAmount = this.state.helpAmountIn;
+        let helpMxcAmount = this.state.helpMxcAmount;
+        let helpTokenAmount = this.state.helpTokenAmount;
+        if (helpAmount) {
+            //帮参与支付数量
+            let payUsdt = toWei(helpAmount, this.state.usdtDecimals).mul(new BN(this.state.helpPayRate)).div(new BN(10000));
+            let mxcUsdt = payUsdt.mul(new BN(this.state.helpPayMxcRate)).div(new BN(10000));
+            let usdtUnit = toWei('1', this.state.usdtDecimals);
+            //帮参与MXC数量
+            let mxcAmount = this.state.mxcAmountPerUsdt.mul(mxcUsdt).div(usdtUnit);
+            helpMxcAmount = showFromWei(mxcAmount, 18, 8);
+            //帮参与REFI数量
+            let refiAmount = this.state.tokenPerUsdt.mul(payUsdt.sub(mxcUsdt)).div(usdtUnit);
+            helpTokenAmount = showFromWei(refiAmount, this.state.tokenDecimals, 6);
+        } else {
+            helpMxcAmount = '';
+            helpTokenAmount = '';
+        }
+        this.setState({ helpAmountIn: helpAmount, helpMxcAmount: helpMxcAmount, helpTokenAmount: helpTokenAmount });
     }
 
     connectWallet() {
@@ -424,12 +461,111 @@ class Mint extends Component {
         });
     }
 
+
+    //帮参与地址输入框
+    handleHelpAccountChange(event) {
+        let accountIn = event.target.value;
+        this.setState({ helpAccountIn: accountIn });
+    }
+
+    //帮参与数量输入框变化，计算需要多少代币
+    handleHelpAmountChange(event) {
+        let amount = this.state.helpAmountIn;
+        let helpMxcAmount = this.state.helpMxcAmount;
+        let helpTokenAmount = this.state.helpTokenAmount;
+        if (event.target.validity.valid) {
+            amount = event.target.value;
+            if (amount) {
+                //帮参与支付数量
+                let payUsdt = toWei(amount, this.state.usdtDecimals).mul(new BN(this.state.helpPayRate)).div(new BN(10000));
+                let mxcUsdt = payUsdt.mul(new BN(this.state.helpPayMxcRate)).div(new BN(10000));
+                let usdtUnit = toWei('1', this.state.usdtDecimals);
+                //帮参与MXC数量
+                let mxcAmount = this.state.mxcAmountPerUsdt.mul(mxcUsdt).div(usdtUnit);
+                helpMxcAmount = showFromWei(mxcAmount, 18, 8);
+                //帮参与REFI数量
+                let refiAmount = this.state.tokenPerUsdt.mul(payUsdt.sub(mxcUsdt)).div(usdtUnit);
+                helpTokenAmount = showFromWei(refiAmount, this.state.tokenDecimals, 6);
+            } else {
+                helpMxcAmount = '';
+                helpTokenAmount = '';
+            }
+        }
+        this.setState({ helpAmountIn: amount, helpMxcAmount: helpMxcAmount, helpTokenAmount: helpTokenAmount });
+    }
+
+    //帮参与
+    async helpJoin() {
+        if (WalletState.wallet.chainId != CHAIN_ID || !WalletState.wallet.account) {
+            toast.show(CHAIN_ERROR_TIP);
+            return;
+        }
+        loading.show();
+        try {
+            let amount = this.state.helpAmountIn;
+            let usdtAmount = toWei(amount, this.state.usdtDecimals);
+            if (usdtAmount.lt(this.state.minAmount)) {
+                toast.show("最少参与" + this.state.showMinAmount);
+            }
+            let payTokenAmount = toWei(this.state.helpTokenAmount, this.state.tokenDecimals);
+            let mxcValue = toWei(this.state.helpMxcAmount, 18);
+
+            const web3 = new Web3(Web3.givenProvider);
+            let account = WalletState.wallet.account;
+
+            //支付MXC，设置5%滑点
+            mxcValue = mxcValue.mul(new BN(105)).div(new BN(100));
+            if (this.state.balance.lt(mxcValue)) {
+                toast.show('MXC余额不足');
+            }
+
+            //代币
+            if (this.state.tokenBalance.lt(payTokenAmount)) {
+                toast.show('REFI余额不足');
+            }
+            let approvalNum = this.state.tokenAllowance;
+            //LP授权额度不够了，需要重新授权
+            if (approvalNum.lt(payTokenAmount)) {
+                const tokenContract = new web3.eth.Contract(ERC20_ABI, this.state.tokenAddress);
+                var transaction = await tokenContract.methods.approve(WalletState.config.UPool, MAX_INT).send({ from: account });
+                if (!transaction.status) {
+                    toast.show("授权失败");
+                    return;
+                }
+            }
+
+            const poolContract = new web3.eth.Contract(UPool_ABI, WalletState.config.UPool);
+            //帮参与挖矿
+            let helpAccount = this.state.helpAccountIn;
+            var estimateGas = await poolContract.methods.helpJoin(helpAccount, usdtAmount).estimateGas({ from: account, value: mxcValue });
+            var transaction = await poolContract.methods.helpJoin(helpAccount, usdtAmount).send({ from: account, value: mxcValue });
+            if (transaction.status) {
+                toast.show("帮参与成功");
+            } else {
+                toast.show("帮参与失败");
+            }
+        } catch (e) {
+            console.log("e", e);
+            toast.show(e.message);
+        } finally {
+            loading.hide();
+        }
+    }
+
     render() {
         return (
             <div className="Token NFT">
                 <Header></Header>
                 <div className='Module ModuleTop'>
                     <div className='ModuleContentWitdh RuleTitle'>
+                        <div>MXC价格</div>
+                        <div>{this.state.mxcPrice}</div>
+                    </div>
+                    <div className='ModuleContentWitdh RuleTitle mt5'>
+                        <div>REFI价格</div>
+                        <div>{this.state.tokenPrice}</div>
+                    </div>
+                    <div className='ModuleContentWitdh RuleTitle mt5'>
                         <div>全网实时算力</div>
                         <div>{this.state.totalUsdt}</div>
                     </div>
@@ -538,11 +674,32 @@ class Mint extends Component {
                 </div>
 
                 <div className='Module ModuleTop'>
+                    <div className='Title'>帮参与</div>
+                    <div className='InputBg mt10'>
+                        <input className="Input" type="text" value={this.state.helpAmountIn}
+                            placeholder={'请输入数量,最少' + this.state.showMinAmount}
+                            onChange={this.handleHelpAmountChange.bind(this)} pattern="[0-9]*" >
+                        </input>
+                    </div>
+                    <div className='InputBg mt10'>
+                        <input className="Input" type="text" value={this.state.helpAccountIn}
+                            placeholder={'请输入帮参与地址'}
+                            onChange={this.handleHelpAccountChange.bind(this)} >
+                        </input>
+                    </div>
+                    <div className='mt10 prettyBg button' onClick={this.helpJoin.bind(this)}>{this.state.helpMxcAmount} MXC + {this.state.helpTokenAmount} {this.state.tokenSymbol} 参与</div>
+                    <div className='ModuleContentWitdh RuleTitle mt10'>
+                        <div>余额</div>
+                        <div>{this.state.showBalance} MXC / {this.state.showTokenBalance} {this.state.tokenSymbol}</div>
+                    </div>
+                </div>
+
+                <div className='Module ModuleTop'>
                     <div className='Title'>直推人数 {this.state.binderNum}</div>
                     {this.state.binders.map((item, index) => {
                         return <div className='mt5' key={index}>
                             <div className='ModuleContentWitdh RuleTitle'>
-                                <div className=''>NO.{index + 1} {item.account}</div>
+                                <div className=''>{index + 1}. {item.account}</div>
                                 <div className=''>{item.amount}</div>
                             </div>
                         </div>

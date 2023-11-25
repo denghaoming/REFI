@@ -10,7 +10,7 @@ class WalletState {
     config = {
         //OKC
         REFI:"0xd79DcB43BC9CAb0E913eccA1D0d74eE6629f41ee",
-        UPool: "0xD8fA3C24ee2693EC3d30804c48aa72c33EE5Ed25",
+        UPool: "0x4031a9B0E80a170f614EACdEdc819a54d14CFDe1",
         SellPool: "0x8a059b19Eb8157962aAa06fFB986225249b75C7c",
 
         //MXC
