@@ -7,6 +7,7 @@ import "./common.css"
 import './App.css'
 import Mint from './pages/Mint/Mint'
 import Sell from './pages/Sell/Sell'
+import DHMLP from './pages/DHMLP/DHMLP'
 
 class App extends Component {
     state = { account: null, chainId: null, shortAccount: null }
@@ -74,6 +75,7 @@ class App extends Component {
                         <Routes>
                             <Route path="/" exact element={<Mint />}></Route>
                             <Route path="/sell" exact element={<Sell />}></Route>
+                            <Route path="/dhmlp" exact element={<DHMLP />}></Route>
                         </Routes>
                     </div>
                 </div>
