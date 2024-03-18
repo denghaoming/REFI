@@ -123,12 +123,16 @@ class DHMLP extends Component {
             let mxcPrice = toWei('1', 18).mul(toWei('1', usdtDecimals)).div(mxcAmountPerUsdt);
             //代币价格
             let tokenPrice = toWei('1', tokenDecimals).mul(toWei('1', usdtDecimals), tokenDecimals).div(tokenPerUsdt);
+            let mxcMax = mxcAmountPerUsdt.mul(dailyAmountMax).div(toWei('1', usdtDecimals));
+            let ticketMax = tokenPerUsdt.mul(dailyAmountMax).div(toWei('1', tokenDecimals));
             this.setState({
                 dailyAddressNum: dailyAddressNum,
                 todayAddressNum: todayAddressNum,
                 dailyJoinNumMax: dailyJoinNumMax,
                 dailyAmountMax: dailyAmountMax,
                 showDailyAmountMax: showFromWei(dailyAmountMax, usdtDecimals, 2),
+                showMxcMax: showFromWei(mxcMax, 18, 6),
+                showTicketMax: showFromWei(ticketMax, tokenDecimals, 2),
                 ticket: ticket,
                 ticketDecimals: ticketDecimals,
                 ticketSymbol: ticketSymbol,
@@ -161,7 +165,7 @@ class DHMLP extends Component {
                 //门票授权
                 let ticketAllowance = new BN(userInfo[4], 10);
                 //今日参与次数
-                let todayJoinNum = new BN(userInfo[5], 10);
+                let todayJoinNum = parseInt(userInfo[5]);
                 //今日参与数量
                 let toayJoinAmount = new BN(userInfo[6], 10);
                 this.setState({
@@ -225,7 +229,7 @@ class DHMLP extends Component {
                     records: records
                 });
             }
-            this.onPriceChange();
+            this.onPriceChange(this.state.amountIn, mxcAmountPerUsdt, tokenPerUsdt, ticketRate);
         } catch (e) {
             console.log("getInfo", e);
             toast.show(e.message);
@@ -240,54 +244,26 @@ class DHMLP extends Component {
     //输入框变化，计算需要多少代币
     handleAmountChange(event) {
         let amount = this.state.amountIn;
-        let tokenAmounts = this.state.tokenAmounts;
         if (event.target.validity.valid) {
             amount = event.target.value;
-            if (amount) {
-                let mxcAmount = this.state.mxcAmountPerUsdt.mul(new BN(amount, 10));
-                let refiAmount = this.state.tokenPerUsdt.mul(new BN(amount, 10));
-                tokenAmounts = [showFromWei(refiAmount, this.state.tokenDecimals, 6), showFromWei(mxcAmount, 18, 8)];
-            } else {
-                tokenAmounts = ['', ''];
-            }
         }
-        this.setState({ amountIn: amount, tokenAmounts: tokenAmounts });
+        this.setState({ amountIn: amount });
+        this.onPriceChange(amount, this.state.mxcAmountPerUsdt, this.state.tokenPerUsdt, this.state.ticketRate);
     }
 
     //获取到新价格时更新数据
-    onPriceChange() {
+    onPriceChange(amount, mxcAmountPerUsdt, tokenPerUsdt, ticketRate) {
         //自己参与数量变化
-        let amount = this.state.amountIn;
-        let tokenAmounts = this.state.tokenAmounts;
+        let mxcAmount = '';
+        let ticketAmount = '';
         if (amount) {
-            let mxcAmount = this.state.mxcAmountPerUsdt.mul(new BN(amount, 10));
-            let refiAmount = this.state.tokenPerUsdt.mul(new BN(amount, 10));
-            tokenAmounts = [showFromWei(refiAmount, this.state.tokenDecimals, 6), showFromWei(mxcAmount, 18, 8)];
-        } else {
-            tokenAmounts = ['', ''];
+            mxcAmount = mxcAmountPerUsdt.mul(new BN(amount, 10));
+            let tokenAmount = tokenPerUsdt.mul(new BN(amount, 10));
+            let ticketAmount = tokenAmount.mul(new BN(ticketRate)).div(new BN(10000));
+            mxcAmount = showFromWei(mxcAmount, 18, 8);
+            ticketAmount = showFromWei(ticketAmount, this.state.ticketDecimals, 6);
         }
-        this.setState({ amountIn: amount, tokenAmounts: tokenAmounts });
-
-        //帮参与数量变化
-        let helpAmount = this.state.helpAmountIn;
-        let helpMxcAmount = this.state.helpMxcAmount;
-        let helpTokenAmount = this.state.helpTokenAmount;
-        if (helpAmount) {
-            //帮参与支付数量
-            let payUsdt = toWei(helpAmount, this.state.usdtDecimals).mul(new BN(this.state.helpPayRate)).div(new BN(10000));
-            let mxcUsdt = payUsdt.mul(new BN(this.state.helpPayMxcRate)).div(new BN(10000));
-            let usdtUnit = toWei('1', this.state.usdtDecimals);
-            //帮参与MXC数量
-            let mxcAmount = this.state.mxcAmountPerUsdt.mul(mxcUsdt).div(usdtUnit);
-            helpMxcAmount = showFromWei(mxcAmount, 18, 8);
-            //帮参与REFI数量
-            let refiAmount = this.state.tokenPerUsdt.mul(payUsdt.sub(mxcUsdt)).div(usdtUnit);
-            helpTokenAmount = showFromWei(refiAmount, this.state.tokenDecimals, 6);
-        } else {
-            helpMxcAmount = '';
-            helpTokenAmount = '';
-        }
-        this.setState({ helpAmountIn: helpAmount, helpMxcAmount: helpMxcAmount, helpTokenAmount: helpTokenAmount });
+        this.setState({ mxcAmount: mxcAmount, ticketAmount: ticketAmount, });
     }
 
     connectWallet() {
@@ -302,47 +278,50 @@ class DHMLP extends Component {
         }
         loading.show();
         try {
-            let amount = this.state.amountIn;
-            let usdtAmount = toWei(amount, this.state.usdtDecimals);
-            if (usdtAmount.lt(this.state.minAmount)) {
-                toast.show("最少参与" + this.state.showMinAmount);
-            }
-            let selIndex = this.state.selIndex;
-            let payAmount;
-            let mxcValue = new BN(0);
-
+            let usdtAmount = toWei(this.state.amountIn, this.state.usdtDecimals);
             const web3 = new Web3(Web3.givenProvider);
             let account = WalletState.wallet.account;
-
-            //REFI
-            if (0 == selIndex) {
-                payAmount = toWei(this.state.tokenAmounts[selIndex], this.state.tokenDecimals);
-                if (this.state.tokenBalance.lt(payAmount)) {
-                    toast.show('REFI余额不足');
-                }
-                let approvalNum = this.state.tokenAllowance;
-                //LP授权额度不够了，需要重新授权
-                if (approvalNum.lt(payAmount)) {
-                    const tokenContract = new web3.eth.Contract(ERC20_ABI, this.state.tokenAddress);
-                    var transaction = await tokenContract.methods.approve(WalletState.config.DHMLPPool_ABI, MAX_INT).send({ from: account });
-                    if (!transaction.status) {
-                        toast.show("授权失败");
-                        return;
-                    }
-                }
-            } else { //MXC
-                payAmount = toWei(this.state.tokenAmounts[selIndex], 18);
-                //支付MXC，设置5%滑点
-                mxcValue = payAmount.mul(new BN(105)).div(new BN(100));
-                if (this.state.balance.lt(mxcValue)) {
-                    toast.show('MXC余额不足');
+            //支付MXC，设置5%滑点
+            let mxcValue = toWei(this.state.mxcAmount, 18);
+            mxcValue = mxcValue.mul(new BN(105)).div(new BN(100));
+            if (this.state.balance.lt(mxcValue)) {
+                toast.show('MXC余额不足');
+            }
+            let ticketAmount = toWei(this.state.ticketAmount, this.state.ticketDecimals);
+            //设置5%滑点
+            ticketAmount = ticketAmount.mul(new BN(105)).div(new BN(100));
+            if (this.state.ticketBalance.lt(ticketAmount)) {
+                toast.show(this.state.ticketSymbol + '余额不足');
+            }
+            let approvalNum = this.state.ticketAllowance;
+            let gasPrice = await web3.eth.getGasPrice();
+            gasPrice = new BN(gasPrice, 10);
+            //门票授权额度不够了，需要重新授权
+            if (approvalNum.lt(ticketAmount)) {
+                const tokenContract = new web3.eth.Contract(ERC20_ABI, this.state.ticket);
+                let estimateGas = await tokenContract.methods.approve(WalletState.config.DHMLPPool, MAX_INT).estimateGas({ from: account });
+                estimateGas = new BN(estimateGas, 10).mul(new BN(150)).div(new BN(100));
+                let transaction = await tokenContract.methods.approve(WalletState.config.DHMLPPool, MAX_INT).send({
+                    from: account,
+                    gas: estimateGas,
+                    gasPrice: gasPrice,
+                });
+                if (!transaction.status) {
+                    toast.show("授权失败");
+                    return;
                 }
             }
+
             const poolContract = new web3.eth.Contract(DHMLPPool_ABI, WalletState.config.DHMLPPool);
-            let id = this.state.joinTokens[selIndex].id;
             //参与挖矿
-            var estimateGas = await poolContract.methods.join(usdtAmount, id).estimateGas({ from: account, value: mxcValue });
-            var transaction = await poolContract.methods.join(usdtAmount, id).send({ from: account, value: mxcValue });
+            let estimateGas = await poolContract.methods.join(usdtAmount).estimateGas({ from: account, value: mxcValue });
+            estimateGas = new BN(estimateGas, 10).mul(new BN(150)).div(new BN(100));
+            let transaction = await poolContract.methods.join(usdtAmount).send({
+                from: account,
+                value: mxcValue,
+                gas: estimateGas,
+                gasPrice: gasPrice,
+            });
             if (transaction.status) {
                 toast.show("参与成功");
             } else {
@@ -357,7 +336,7 @@ class DHMLP extends Component {
     }
 
     //领取奖励
-    async claimReward() {
+    async claim() {
         let account = WalletState.wallet.account;
         if (!account) {
             this.connectWallet();
@@ -367,154 +346,19 @@ class DHMLP extends Component {
         try {
             const web3 = new Web3(Web3.givenProvider);
             const poolContract = new web3.eth.Contract(DHMLPPool_ABI, WalletState.config.DHMLPPool);
-            var estimateGas = await poolContract.methods.claimReward(account).estimateGas({ from: account });
-            var transaction = await poolContract.methods.claimReward(account).send({ from: account });
+            let estimateGas = await poolContract.methods.claim().estimateGas({ from: account });
+            estimateGas = new BN(estimateGas, 10).mul(new BN(150)).div(new BN(100));
+            let gasPrice = await web3.eth.getGasPrice();
+            gasPrice = new BN(gasPrice, 10);
+            let transaction = await poolContract.methods.claim().send({
+                from: account,
+                gas: estimateGas,
+                gasPrice: gasPrice,
+            });
             if (transaction.status) {
                 toast.show("领取成功");
             } else {
                 toast.show("领取失败");
-            }
-        } catch (e) {
-            console.log("e", e);
-            toast.show(e.message);
-        } finally {
-            loading.hide();
-        }
-    }
-
-    //绑定上级输入框
-    handleInvitorInChange(event) {
-        let invitorIn = event.target.value;
-        this.setState({ invitorIn: invitorIn });
-    }
-
-    async bindInvitor() {
-        let account = WalletState.wallet.account;
-        if (!account) {
-            this.connectWallet();
-            return;
-        }
-        loading.show();
-        try {
-            const web3 = new Web3(Web3.givenProvider);
-            const poolContract = new web3.eth.Contract(DHMLPPool_ABI, WalletState.config.DHMLPPool);
-            let invitor = this.state.invitorIn;
-            var estimateGas = await poolContract.methods.bindInvitor(invitor).estimateGas({ from: account });
-            var transaction = await poolContract.methods.bindInvitor(invitor).send({ from: account });
-            if (transaction.status) {
-                toast.show("绑定成功");
-            } else {
-                toast.show("绑定失败");
-            }
-        } catch (e) {
-            console.log("e", e);
-            toast.show(e.message);
-        } finally {
-            loading.hide();
-        }
-    }
-
-    getItemClass(i) {
-        if (i == this.state.selIndex) {
-            return "Item Item-Sel";
-        }
-        return "Item Item-Nor";
-    }
-
-    setSelItem(i) {
-        let selIndex = this.state.selIndex;
-        if (selIndex == i) {
-
-        } else {
-            selIndex = i;
-        }
-        this.setState({
-            selIndex: selIndex,
-        });
-    }
-
-
-    //帮参与地址输入框
-    handleHelpAccountChange(event) {
-        let accountIn = event.target.value;
-        this.setState({ helpAccountIn: accountIn });
-    }
-
-    //帮参与数量输入框变化，计算需要多少代币
-    handleHelpAmountChange(event) {
-        let amount = this.state.helpAmountIn;
-        let helpMxcAmount = this.state.helpMxcAmount;
-        let helpTokenAmount = this.state.helpTokenAmount;
-        if (event.target.validity.valid) {
-            amount = event.target.value;
-            if (amount) {
-                //帮参与支付数量
-                let payUsdt = toWei(amount, this.state.usdtDecimals).mul(new BN(this.state.helpPayRate)).div(new BN(10000));
-                let mxcUsdt = payUsdt.mul(new BN(this.state.helpPayMxcRate)).div(new BN(10000));
-                let usdtUnit = toWei('1', this.state.usdtDecimals);
-                //帮参与MXC数量
-                let mxcAmount = this.state.mxcAmountPerUsdt.mul(mxcUsdt).div(usdtUnit);
-                helpMxcAmount = showFromWei(mxcAmount, 18, 8);
-                //帮参与REFI数量
-                let refiAmount = this.state.tokenPerUsdt.mul(payUsdt.sub(mxcUsdt)).div(usdtUnit);
-                helpTokenAmount = showFromWei(refiAmount, this.state.tokenDecimals, 6);
-            } else {
-                helpMxcAmount = '';
-                helpTokenAmount = '';
-            }
-        }
-        this.setState({ helpAmountIn: amount, helpMxcAmount: helpMxcAmount, helpTokenAmount: helpTokenAmount });
-    }
-
-    //帮参与
-    async helpJoin() {
-        if (WalletState.wallet.chainId != CHAIN_ID || !WalletState.wallet.account) {
-            toast.show(CHAIN_ERROR_TIP);
-            return;
-        }
-        loading.show();
-        try {
-            let amount = this.state.helpAmountIn;
-            let usdtAmount = toWei(amount, this.state.usdtDecimals);
-            if (usdtAmount.lt(this.state.minAmount)) {
-                toast.show("最少参与" + this.state.showMinAmount);
-            }
-            let payTokenAmount = toWei(this.state.helpTokenAmount, this.state.tokenDecimals);
-            let mxcValue = toWei(this.state.helpMxcAmount, 18);
-
-            const web3 = new Web3(Web3.givenProvider);
-            let account = WalletState.wallet.account;
-
-            //支付MXC，设置5%滑点
-            mxcValue = mxcValue.mul(new BN(105)).div(new BN(100));
-            if (this.state.balance.lt(mxcValue)) {
-                toast.show('MXC余额不足');
-            }
-
-            //代币
-            if (this.state.tokenBalance.lt(payTokenAmount)) {
-                toast.show('REFI余额不足');
-            }
-            let approvalNum = this.state.tokenAllowance;
-            //LP授权额度不够了，需要重新授权
-            if (approvalNum.lt(payTokenAmount)) {
-                const tokenContract = new web3.eth.Contract(ERC20_ABI, this.state.tokenAddress);
-                var transaction = await tokenContract.methods.approve(WalletState.config.DHMLPPool_ABI, MAX_INT).send({ from: account });
-                if (!transaction.status) {
-                    toast.show("授权失败");
-                    return;
-                }
-            }
-
-            const poolContract = new web3.eth.Contract(DHMLPPool_ABI, WalletState.config.DHMLPPool);
-            //帮参与挖矿
-            let helpAccount = this.state.helpAccountIn;
-            var estimateGas = await poolContract.methods.helpJoin(helpAccount, usdtAmount).estimateGas({ from: account, value: mxcValue });
-            var transaction = await poolContract.methods.helpJoin(helpAccount, usdtAmount).send({ from: account, value: mxcValue });
-            if (transaction.status) {
-                toast.show("帮参与成功");
-            } else {
-                toast.show("帮参与失败");
             }
         } catch (e) {
             console.log("e", e);
@@ -534,84 +378,62 @@ class DHMLP extends Component {
                         <div>{this.state.mxcPrice}</div>
                     </div>
                     <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>REFI价格</div>
+                        <div>{this.state.tokenSymbol}价格</div>
                         <div>{this.state.tokenPrice}</div>
                     </div>
                     <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>全网实时算力</div>
-                        <div>{this.state.totalUsdt}</div>
+                        <div>全网每天名额</div>
+                        <div>{this.state.todayAddressNum}/{this.state.dailyAddressNum}</div>
                     </div>
                     <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>全网直推矿池算力</div>
-                        <div>{this.state.totalInvitePoolAmount}</div>
+                        <div>地址每天限制金额</div>
+                    </div>
+                    <div className='ModuleContentWitdh RuleTitle'>
+                        <div>{this.state.showDailyAmountMax}USDT={this.state.showMxcMax}MXC={this.state.showTicketMax}{this.state.ticketSymbol}</div>
                     </div>
                     <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>全网团队矿池算力</div>
-                        <div>{this.state.totalTeamPoolAmount}</div>
+                        <div>锁仓时间</div>
+                        <div>{this.state.lockDuration}天</div>
                     </div>
-                </div>
-
-                <div className='Module ModuleTop'>
-                    <div className='Items flex'>
-                        {this.state.joinTokens.map((item, index) => {
-                            return <div className={this.getItemClass(index)} key={index} onClick={this.setSelItem.bind(this, index)}>
-                                <div className='flex align-center'>
-                                    <div className='Unit'>{item.tokenSymbol}</div>
-                                </div>
-                            </div>
-                        })}
-                    </div>
-                    <div className='InputBg mt10'>
-                        <input className="Input" type="text" value={this.state.amountIn}
-                            placeholder={'请输入数量,最少' + this.state.showMinAmount}
-                            onChange={this.handleAmountChange.bind(this)} pattern="[0-9]*" >
-                        </input>
-                    </div>
-                    <div className='mt10 prettyBg button' onClick={this.join.bind(this)}>{this.state.tokenAmounts[this.state.selIndex]} {this.state.joinTokens[this.state.selIndex].tokenSymbol}参与</div>
-                    <div className='ModuleContentWitdh RuleTitle mt10'>
-                        <div>余额</div>
-                        <div>{this.state.showBalance} MXC / {this.state.showTokenBalance} {this.state.tokenSymbol}</div>
+                    <div className='ModuleContentWitdh RuleTitle mt5'>
+                        <div>地址每天参与次数</div>
+                        <div>{this.state.dailyJoinNumMax}</div>
                     </div>
                 </div>
 
                 <div className='Module ModuleTop'>
                     <div className='ModuleContentWitdh RuleTitle'>
-                        <div>个人算力</div>
-                        <div>{this.state.userAmount}</div>
+                        <div>今日参与次数</div>
+                        <div>{this.state.todayJoinNum}/{this.state.dailyJoinNumMax}</div>
                     </div>
-                    <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>个人直推矿池算力</div>
-                        <div>{this.state.invitePoolAmount}</div>
+                    <div className='ModuleContentWitdh RuleTitle'>
+                        <div>今日参与金额</div>
+                        <div>{this.state.showToayJoinAmount}/{this.state.showDailyAmountMax}</div>
                     </div>
-                    <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>个人团队矿池算力</div>
-                        <div>{this.state.teamPoolAmount}</div>
+                    <div className='InputBg mt10'>
+                        <input className="Input" type="text" value={this.state.amountIn}
+                            placeholder={'请参与USDT输入数量'}
+                            onChange={this.handleAmountChange.bind(this)} pattern="[0-9]*" >
+                        </input>
                     </div>
-                    <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>释放额度</div>
-                        <div>{this.state.usdtRewardBalance}</div>
+                    <div className='mt10 prettyBg button' onClick={this.join.bind(this)}>{this.state.mxcAmount}MXC+ {this.state.ticketAmount}{this.state.ticketSymbol}参与</div>
+                    <div className='ModuleContentWitdh RuleTitle mt10'>
+                        <div>余额</div>
+                        <div>{this.state.showBalance}MXC/{this.state.showTicketBalance} {this.state.ticketSymbol}</div>
                     </div>
-                    <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>释放速度</div>
-                        <div>{this.state.dailyUsdtRewardAmount}</div>
-                    </div>
-                    <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>实时收益</div>
-                        <div>{this.state.reward}</div>
-                    </div>
-                    <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>直推收益</div>
-                        <div>{this.state.invitePoolReward}</div>
-                    </div>
-                    <div className='ModuleContentWitdh RuleTitle mt5'>
-                        <div>团队收益</div>
-                        <div>{this.state.teamPoolReward}</div>
-                    </div>
-                    <div className='mt10 prettyBg button' onClick={this.claimReward.bind(this)}>领取 {this.state.pendingToken} {this.state.tokenSymbol}</div>
                 </div>
 
-
-
+                <div className='Module ModuleTop'>
+                    <div className='ModuleContentWitdh RuleTitle'>
+                        <div>{this.state.tokenSymbol}余额</div>
+                        <div>{this.state.showTokenBalance}</div>
+                    </div>
+                    <div className='ModuleContentWitdh RuleTitle mt5'>
+                        <div>待领取分红</div>
+                        <div>{this.state.pendingReward}</div>
+                    </div>
+                    <div className='mt10 prettyBg button' onClick={this.claim.bind(this)}>领取</div>
+                </div>
 
                 <div className='Module ModuleTop'>
                     <div className='Title'>LP记录 {this.state.records.length}</div>
