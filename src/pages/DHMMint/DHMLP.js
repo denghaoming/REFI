@@ -14,7 +14,7 @@ import Header from '../Header';
 import { DHMLPPool_ABI } from '../../abi/DHMLPPool_ABI';
 import moment from 'moment';
 
-class DHMLP extends Component {
+class DHMMint extends Component {
     state = {
         chainId: 0,
         account: "",
@@ -512,4 +512,4 @@ class DHMLP extends Component {
     }
 }
 
-export default withNavigation(DHMLP);
+export default withNavigation(DHMMint);

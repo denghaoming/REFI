@@ -146,6 +146,19 @@ export const DHMLPPool_ABI = [
 	},
 	{
 		"inputs": [],
+		"name": "_initLPReleaseDebtTime",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
 		"name": "_initReleaseTimes",
 		"outputs": [
 			{
@@ -512,6 +525,11 @@ export const DHMLPPool_ABI = [
 				"internalType": "uint256",
 				"name": "blockTime",
 				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalLPAmount",
+				"type": "uint256"
 			}
 		],
 		"stateMutability": "view",
@@ -687,6 +705,11 @@ export const DHMLPPool_ABI = [
 				"internalType": "uint256",
 				"name": "dailyJoinAmount",
 				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "stakeLPAmount",
+				"type": "uint256"
 			}
 		],
 		"stateMutability": "view",
@@ -783,6 +806,19 @@ export const DHMLPPool_ABI = [
 			}
 		],
 		"name": "setEndTime",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "time",
+				"type": "uint256"
+			}
+		],
+		"name": "setInitLPReleaseDebtTime",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
