@@ -78,6 +78,7 @@ class Menu extends Component {
                             <li onClick={this.routerTo.bind(this, "/")}>首页</li>
                             <li onClick={this.routerTo.bind(this, "/sell")}>卖REFI</li>
                             <li onClick={this.routerTo.bind(this, "/dhmlp")}>DHM-LP</li>
+                            <li onClick={this.routerTo.bind(this, "/dhmmint")}>DHM挖矿</li>
                         </ul>
                     </div>
                     <div className="flex-1" onClick={this.hideMenu}></div>

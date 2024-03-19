@@ -420,7 +420,7 @@ export const DHMMintPool_ABI = [
 			},
 			{
 				"internalType": "uint256",
-				"name": "totalUsdt",
+				"name": "totalAmount",
 				"type": "uint256"
 			},
 			{
@@ -646,7 +646,7 @@ export const DHMMintPool_ABI = [
 		"outputs": [
 			{
 				"internalType": "uint256",
-				"name": "usdtRewardBalance",
+				"name": "rewardBalance",
 				"type": "uint256"
 			},
 			{
@@ -676,7 +676,7 @@ export const DHMMintPool_ABI = [
 			},
 			{
 				"internalType": "uint256",
-				"name": "dailyUsdtRewardAmount",
+				"name": "dailyRewardAmount",
 				"type": "uint256"
 			},
 			{
