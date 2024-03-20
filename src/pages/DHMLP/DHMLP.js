@@ -173,6 +173,8 @@ class DHMLP extends Component {
                 let toayJoinAmount = new BN(userInfo[6], 10);
                 //锁仓的lpshul
                 let stakeLPAmount = new BN(userInfo[7], 10);
+                //领取要扣多少REFI
+                let claimTicketAmount = pendingReward.mul(new BN(ticketRate)).div(new BN(10000))
                 this.setState({
                     balance: balance,
                     showBalance: showFromWei(balance, 18, 6),
@@ -185,6 +187,7 @@ class DHMLP extends Component {
                     toayJoinAmount: toayJoinAmount,
                     showToayJoinAmount: showFromWei(toayJoinAmount, usdtDecimals, 2),
                     stakeLPAmount: showFromWei(stakeLPAmount, lpDecimals, 6),
+                    claimTicketAmount: showFromWei(claimTicketAmount, ticketDecimals, 4),
                 })
                 //记录列表
                 let records = [];
@@ -216,6 +219,9 @@ class DHMLP extends Component {
                         } else if (blockTime >= endTime) {
                             statusLabel = "提取";
                         }
+                        let amountEth = new BN(amountEthList[i],10);
+                        //计算lp里实际有多少代币
+                        let lpAmountToken = amountEth.mul(tokenPerUsdt).div(mxcAmountPerUsdt);
                         records.push({
                             index: index,
                             status: status,
@@ -224,7 +230,10 @@ class DHMLP extends Component {
                             startTime: this.formatTime(startTimeList[i]),
                             endTime: this.formatTime(endTime),
                             amountEth: showFromWei(amountEthList[i], 18, 8),
+                            //合约返回的这个金额是扣过撤池子税的
                             amountToken: showFromWei(amountTokenList[i], tokenDecimals, 6),
+                            //实际含有的代币数量
+                            lpAmountToken:showFromWei(lpAmountToken,tokenDecimals,6),
                         });
                         ++index;
                     }
@@ -482,7 +491,7 @@ class DHMLP extends Component {
                         <div>待领取分红</div>
                         <div>{this.state.pendingReward}</div>
                     </div>
-                    <div className='mt10 prettyBg button' onClick={this.claim.bind(this)}>领取</div>
+                    <div className='mt10 prettyBg button' onClick={this.claim.bind(this)}>扣{this.state.claimTicketAmount}{this.state.ticketSymbol} 领取</div>
                 </div>
 
                 <div className='ModuleTop'>
@@ -499,7 +508,7 @@ class DHMLP extends Component {
                             </div>
                             <div className='ModuleContentWitdh RuleTitle'>
                                 <div className=''>{item.amountEth} MXC</div>
-                                <div className=''>{item.amountToken} {this.state.tokenSymbol}</div>
+                                <div className=''>{item.lpAmountToken} {this.state.tokenSymbol}</div>
                             </div>
                             <div className='mt10 prettyBg button' onClick={this.withdraw.bind(this, item.index)}>{item.statusLabel}</div>
                         </div>

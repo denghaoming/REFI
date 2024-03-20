@@ -173,6 +173,8 @@ class DHMMint extends Component {
                 }
                 //收益换算成代币
                 let pendingToken = totalReward;
+                //领取要扣多少REFI
+                let claimTicketAmount = pendingToken.mul(new BN(ticketRate)).div(new BN(10000))
 
                 //用户其他信息
                 const userExtInfo = await poolContract.methods.getUserExtInfo(account).call();
@@ -218,11 +220,12 @@ class DHMMint extends Component {
                     teamAmount: showFromWei(teamAmount, tokenDecimals, 2),
                     largeSupplyAmount: showFromWei(largeSupplyAmount, tokenDecimals, 2),
                     inviteAmount: showFromWei(inviteAmount, tokenDecimals, 2),
-                    pendingToken:pendingToken,
+                    pendingToken: pendingToken,
                     showPendingToken: showFromWei(pendingToken, tokenDecimals, 4),
                     ticketBalance: ticketBalance,
                     showTicketBalance: showFromWei(ticketBalance, ticketDecimals, 2),
                     ticketAllowance: ticketAllowance,
+                    claimTicketAmount: showFromWei(claimTicketAmount, ticketDecimals, 4),
                 })
 
                 //直推列表
@@ -492,7 +495,7 @@ class DHMMint extends Component {
                         <div>团队收益</div>
                         <div>{this.state.teamPoolReward}</div>
                     </div>
-                    <div className='mt10 prettyBg button' onClick={this.claimReward.bind(this)}>领取 {this.state.showPendingToken} {this.state.tokenSymbol}</div>
+                    <div className='mt10 prettyBg button' onClick={this.claimReward.bind(this)}>扣{this.state.claimTicketAmount}{this.state.ticketSymbol} 领取{this.state.showPendingToken} {this.state.tokenSymbol}</div>
                     <div className='ModuleContentWitdh RuleTitle'>
                         <div>{this.state.ticketSymbol}余额</div>
                         <div>{this.state.showTicketBalance}</div>
