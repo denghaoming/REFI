@@ -60,6 +60,19 @@ export const DHMLPPool_ABI = [
 		"type": "function"
 	},
 	{
+		"inputs": [],
+		"name": "_claimTicketRate",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "uint256",
@@ -530,6 +543,11 @@ export const DHMLPPool_ABI = [
 				"internalType": "uint256",
 				"name": "totalLPAmount",
 				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "claimTicketRate",
+				"type": "uint256"
 			}
 		],
 		"stateMutability": "view",
@@ -731,6 +749,19 @@ export const DHMLPPool_ABI = [
 	{
 		"inputs": [],
 		"name": "renounceOwnership",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "r",
+				"type": "uint256"
+			}
+		],
+		"name": "setClaimTicketRate",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"

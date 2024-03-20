@@ -115,12 +115,14 @@ class DHMLP extends Component {
             let mxcAmountPerUsdt = new BN(baseInfo[5], 10);
             //1U有多少DHM代币
             let tokenPerUsdt = new BN(baseInfo[6], 10);
-            //门票比例，默认100%
+            //加池子门票比例，默认100%
             let ticketRate = parseInt(baseInfo[7]);
             //区块时间
             let blockTime = parseInt(baseInfo[8]);
             //全部锁仓lp
             let totalLPAmount = new BN(baseInfo[9], 10);
+            //领取子门票比例，默认100%
+            let claimTicketRate = parseInt(baseInfo[10]);
             //计算MXC价格，价格=1U/1U的币数量*币的精度
             let mxcPrice = toWei('1', 18).mul(toWei('1', usdtDecimals)).div(mxcAmountPerUsdt);
             //代币价格
@@ -174,7 +176,7 @@ class DHMLP extends Component {
                 //锁仓的lpshul
                 let stakeLPAmount = new BN(userInfo[7], 10);
                 //领取要扣多少REFI
-                let claimTicketAmount = pendingReward.mul(new BN(ticketRate)).div(new BN(10000))
+                let claimTicketAmount = pendingReward.mul(new BN(claimTicketRate)).div(new BN(10000))
                 this.setState({
                     balance: balance,
                     showBalance: showFromWei(balance, 18, 6),
